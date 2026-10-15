@@ -1,0 +1,33 @@
+{
+  "name": "roose-flow",
+  "version": "1.0.0",
+  "description": "Chrome extension that queues image prompts and generates them in batches, with a side panel UI",
+  "type": "module",
+  "private": true,
+  "author": "",
+  "repository": "",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "lint": "tsc --noEmit",
+    "icons": "node scripts/generate-icons.mjs",
+    "package": "npm run build && node scripts/package.mjs"
+  },
+  "dependencies": {
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "2.0.0",
+    "@types/chrome": "0.0.253",
+    "@types/node": "20.10.0",
+    "@types/react": "18.2.37",
+    "@types/react-dom": "18.2.15",
+    "@vitejs/plugin-react": "4.2.0",
+    "typescript": "5.3.3",
+    "vite": "5.0.8",
+    "vitest": "^1.0.0"
+  }
+}

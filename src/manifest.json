@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Roose Flow",
+  "version": "1.0.0",
+  "description": "Queue image prompts from a text file, generate them in batches, and save the results automatically.",
+  "minimum_chrome_version": "114",
+  "permissions": ["storage", "downloads", "sidePanel", "debugger"],
+  "host_permissions": ["https://flow.google.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://flow.google.com/*"],
+      "js": ["src/content-script.ts"]
+    }
+  ],
+  "background": {
+    "service_worker": "src/background.ts"
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open Roose Flow"
+  },
+  "icons": {
+    "16": "public/icons/icon-16.png",
+    "48": "public/icons/icon-48.png",
+    "128": "public/icons/icon-128.png"
+  }
+}
