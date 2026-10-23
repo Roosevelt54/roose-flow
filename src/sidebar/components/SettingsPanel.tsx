@@ -41,10 +41,18 @@ export function SettingsPanel({ settings, onUpdate, directory }: SettingsPanelPr
         Serial numbering
       </label>
 
-      <label style={{ display: 'flex', marginBottom: '16px', fontSize: '12px' }}>
+      <label style={{ display: 'flex', marginBottom: '8px', fontSize: '12px' }}>
         <input type="checkbox" checked={settings.characterConsistency} onChange={(e) => onUpdate({ characterConsistency: e.target.checked })} style={{ marginRight: '8px' }} />
         Character consistency
       </label>
+
+      <label style={{ display: 'flex', marginBottom: '4px', fontSize: '12px' }}>
+        <input type="checkbox" checked={settings.reuseScenes !== false} onChange={(e) => onUpdate({ reuseScenes: e.target.checked })} style={{ marginRight: '8px' }} />
+        Reuse earlier scenes
+      </label>
+      <div style={{ marginBottom: '16px', marginLeft: '22px', fontSize: '11px', color: '#777' }}>
+        Attaches an earlier render of the same place, found from the prompt's Setting line, along with any characters.
+      </div>
 
       <div style={{ marginBottom: '12px' }}>
         <label style={{ fontSize: '12px', color: '#999' }}>Save renders to</label>

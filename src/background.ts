@@ -1,6 +1,7 @@
 import { StorageService } from './lib/storage';
 import { AutomationController } from './lib/automation';
 import { matchCharacters } from './lib/characters';
+import { pickSceneReference } from './lib/scenes';
 import { trustedClick, releaseTrustedInput, forgetDetached } from './lib/trustedInput';
 import type { QueueItem, AppSettings } from './types/index';
 
@@ -131,12 +132,16 @@ async function handleMessage(
           ? rawNumber
           : undefined;
 
+      const scene =
+        typeof payload?.scene === 'string' && payload.scene.trim() ? payload.scene.trim() : undefined;
+
       await storage.updateQueue((queue) => [
         ...queue,
         {
           id: `${Date.now()}-${queue.length}`,
           text,
           ...(number !== undefined ? { number } : {}),
+          ...(scene ? { scene } : {}),
           status: 'pending' as const,
         },
       ]);
@@ -175,6 +180,7 @@ async function handleMessage(
     }
 
     case 'start': {
+      if (!(await ensureFlowTab())) return { success: false, error: UNREACHABLE };
       automation.setRunning(true);
       // Plain start always runs the queue from the top.
       await storage.updateState({ isRunning: true, currentIndex: 0 });
@@ -217,6 +223,7 @@ async function handleMessage(
       if (typeof index !== 'number' || index < 0 || index >= current.length) {
         return { success: false, error: 'Invalid index' };
       }
+      if (!(await ensureFlowTab())) return { success: false, error: UNREACHABLE };
 
       // Re-queue everything from here to the end regardless of what it was
       // before, so prompts that already ran are generated again.
@@ -229,6 +236,13 @@ async function handleMessage(
       await broadcastUpdate('AUTOMATION_STATE');
       startAutomationLoop().catch((err) => console.error('[background] Loop error:', err));
       return { success: true };
+    }
+
+    // The panel asks this to show whether a Flow tab is ready to be driven.
+    case 'flowStatus': {
+      const tabs = await chrome.tabs.query({ url: 'https://flow.google.com/*' });
+      const tabId = await findFlowTab();
+      return { success: true, connected: tabId !== null, tabs: tabs.length };
     }
 
     case 'getQueue': {
@@ -300,6 +314,7 @@ async function startAutomationLoop(): Promise<void> {
     // for picking work stays wherever the run was told to begin.
     const { currentIndex: startIndex } = await storage.getState();
     console.log('[Roose Flow] run starting at index', startIndex);
+    let warnedAboutClick = false;
 
     while (automation.getRunning()) {
       const queue = await storage.getQueue();
@@ -339,6 +354,19 @@ async function startAutomationLoop(): Promise<void> {
         characterNames.length ? characterNames.join(', ') : '(none)'
       );
 
+      // An earlier render of the same place goes on as a reference too. Chosen
+      // once per prompt, so a retry attaches the same image.
+      const runSettings = await storage.getSettings();
+      const scene =
+        runSettings.reuseScenes === false
+          ? null
+          : pickSceneReference(nextItem.text, await storage.getRenders(), nextItem.scene);
+      const sceneKeys = scene ? [scene.mediaKey] : [];
+      console.log(
+        '[Roose Flow] earlier scene for this prompt:',
+        scene ? `shot ${scene.number}` : '(none)'
+      );
+
       // Flow intermittently errors on a prompt that succeeds on a second try,
       // so re-submit the same text a few times before giving up on it.
       let result: Record<string, unknown> | null = null;
@@ -346,7 +374,7 @@ async function startAutomationLoop(): Promise<void> {
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
         result = await sendToContentScript({
           action: 'generatePrompt',
-          payload: { text: nextItem.text, characterNames },
+          payload: { text: nextItem.text, characterNames, sceneKeys },
         });
 
         if (result?.success) break;
@@ -379,6 +407,7 @@ async function startAutomationLoop(): Promise<void> {
             item.id === nextItem.id ? { ...item, status: 'pending' as const } : item
           )
         );
+        await broadcastNotice(UNREACHABLE_NOTICE, 'error');
         automation.setRunning(false);
         await storage.updateState({ isRunning: false });
         await broadcastUpdate('QUEUE_UPDATE');
@@ -401,6 +430,26 @@ async function startAutomationLoop(): Promise<void> {
           )
         );
 
+        if (finalResult.kind !== 'video' && typeof finalResult.mediaKey === 'string') {
+          await storage.addRender({
+            number: nextItem.number ?? itemIndex + 1,
+            text: nextItem.text,
+            mediaKey: finalResult.mediaKey,
+            ...(nextItem.scene ? { scene: nextItem.scene } : {}),
+          });
+        }
+        const missingRefs = finalResult.missingReferences as string[] | undefined;
+        if (missingRefs?.length) {
+          await broadcastNotice(
+            `Prompt ${nextItem.number ?? itemIndex + 1} was generated without ${missingRefs.join(' and ')}: ${missingRefs.length > 1 ? 'their tiles were' : 'its tile was'} not found in Flow after 3 tries. Check the name matches the tile in Flow exactly.`,
+            'warning'
+          );
+        }
+        if (finalResult.warning === 'click-blocked' && !warnedAboutClick) {
+          warnedAboutClick = true;
+          await broadcastNotice(CLICK_BLOCKED_NOTICE, 'warning');
+        }
+
         const settings = await storage.getSettings();
         console.log('[Roose Flow] autoDownload setting:', settings.autoDownload);
         if (settings.autoDownload) {
@@ -414,6 +463,12 @@ async function startAutomationLoop(): Promise<void> {
         }
       } else {
         // Mark as skipped (after failed retry)
+        await broadcastNotice(
+          `Prompt ${nextItem.number ?? itemIndex + 1} was skipped: ${
+            (result?.error as string) || 'no response from the Flow tab'
+          }.${result?.warning === 'click-blocked' ? ' ' + CLICK_BLOCKED_NOTICE : ''}`,
+          'warning'
+        );
         await storage.updateQueue((q) =>
           q.map((item) =>
             item.id === nextItem.id ? { ...item, status: 'skipped' as const } : item
@@ -612,6 +667,31 @@ async function sendToContentScript(
     console.error('[sendToContentScript] Error:', error);
     return null;
   }
+}
+
+const UNREACHABLE_NOTICE =
+  "Roose Flow can't see your Flow tab. Open flow.google.com, reload that tab (F5), keep it open, then press Start.";
+
+const CLICK_BLOCKED_NOTICE =
+  "Chrome didn't allow the click that sends a prompt. Keep the \"debugging this browser\" bar and don't cancel it, and turn off other Flow or automation extensions on this tab.";
+
+/** A message for the side panel to show; the panel decides how long to keep it. */
+async function broadcastNotice(text: string, kind: 'error' | 'warning'): Promise<void> {
+  console.warn('[Roose Flow] notice:', text);
+  await chrome.runtime.sendMessage({ type: 'NOTICE', notice: { text, kind } }).catch(() => {});
+}
+
+/** True when a Flow tab is ready; otherwise tells the panel what to do about it. */
+async function ensureFlowTab(): Promise<boolean> {
+  if ((await findFlowTab()) !== null) return true;
+  const open = await chrome.tabs.query({ url: 'https://flow.google.com/*' });
+  await broadcastNotice(
+    open.length === 0
+      ? 'No Flow tab is open. Open flow.google.com in a tab, then press Start.'
+      : UNREACHABLE_NOTICE,
+    'error'
+  );
+  return false;
 }
 
 /**

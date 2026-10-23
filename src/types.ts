@@ -3,6 +3,7 @@ export interface QueueItem {
   text: string
   /** Shot number from an imported shot list; names the saved file. */
   number?: number
+  scene?: string
   status: 'pending' | 'in-progress' | 'done' | 'skipped'
 }
 
@@ -10,6 +11,7 @@ export interface AppSettings {
   autoDownload: boolean
   serialNumber: boolean
   characterConsistency: boolean
+  reuseScenes?: boolean
   downloadFolder: string
   delayMin: number
   delayMax: number

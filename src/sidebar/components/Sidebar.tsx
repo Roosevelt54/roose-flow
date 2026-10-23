@@ -2,6 +2,8 @@ import React, { useState } from 'react'
 import { QueueItem, AppSettings } from '../../types'
 import type { ParsedPrompt } from '../../lib/promptFile'
 import type { CharacterEntry } from '../../lib/characters'
+import type { Notice } from '../hooks/useNotice'
+import type { FlowStatus } from '../hooks/useFlowStatus'
 import { QueuePanel } from './QueuePanel'
 import { SettingsPanel } from './SettingsPanel'
 import { CharactersPanel } from './CharactersPanel'
@@ -24,6 +26,9 @@ interface SidebarProps {
   settings: AppSettings
   directory: DirectoryControls
   characters: CharacterEntry[]
+  notice?: Notice | null
+  onDismissNotice?: () => void
+  flowStatus?: FlowStatus
   isRunning: boolean
   done: number
   pending: number
@@ -43,7 +48,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({
-  queue, settings, directory, characters, isRunning, done, pending, skipped, currentIndex,
+  queue, settings, directory, characters, notice, onDismissNotice, flowStatus, isRunning, done, pending, skipped, currentIndex,
   onAddPrompt, onRemovePrompt, onReorderQueue, onUpdateSettings,
   onAddCharacter, onRemoveCharacter,
   onStart, onStop, onContinue, onImportPrompts
@@ -74,9 +79,44 @@ export function Sidebar({
         </div>
       )}
 
-      <div style={{ padding: '12px', borderBottom: '1px solid #2a2a2a' }}>
+      <div style={{ padding: '12px', borderBottom: '1px solid #2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
         <h1 style={{ margin: 0, fontSize: '14px', fontWeight: 'bold' }}>Roose Flow</h1>
+        {flowStatus && !flowStatus.checking && (
+          <span
+            title={flowStatus.connected ? 'A Flow tab is open and ready' : 'Open flow.google.com and reload that tab (F5)'}
+            style={{ fontSize: '11px', color: flowStatus.connected ? '#4ade80' : '#fbbf24', whiteSpace: 'nowrap' }}
+          >
+            {flowStatus.connected ? '● Connected to Flow' : flowStatus.tabs === 0 ? '● No Flow tab open' : '● Reload your Flow tab'}
+          </span>
+        )}
       </div>
+
+      {notice && (
+        <div
+          role="alert"
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px',
+            padding: '8px 12px',
+            fontSize: '12px',
+            lineHeight: 1.4,
+            color: '#fff',
+            backgroundColor: notice.kind === 'error' ? '#b91c1c' : '#92400e',
+          }}
+        >
+          <span style={{ flex: 1 }}>{notice.text}</span>
+          {onDismissNotice && (
+            <button
+              onClick={onDismissNotice}
+              aria-label="Dismiss"
+              style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '14px', padding: 0 }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: '8px', padding: '8px 12px', borderBottom: '1px solid #2a2a2a' }}>
         <button onClick={() => setActiveTab('queue')} style={{ flex: 1, padding: '6px', backgroundColor: activeTab === 'queue' ? '#1e3a8a' : '#2a2a2a', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Queue</button>

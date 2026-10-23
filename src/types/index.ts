@@ -5,6 +5,8 @@ export interface QueueItem {
   text: string;
   /** Shot number from an imported shot list; names the saved file. */
   number?: number;
+  /** Scene header the prompt sat under in the imported file, used to reuse that scene's look. */
+  scene?: string;
   status: QueueItemStatus;
   imageUrl?: string;
 }
@@ -13,6 +15,8 @@ export interface AppSettings {
   autoDownload: boolean;
   serialNumber: boolean;
   characterConsistency: boolean;
+  /** Attach an earlier render of the same place to a prompt. On unless set false. */
+  reuseScenes?: boolean;
   /** Subfolder under Chrome's Downloads directory, used when no folder is picked. */
   downloadFolder: string;
   /**

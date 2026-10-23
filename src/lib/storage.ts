@@ -1,5 +1,6 @@
 import type { QueueItem, AppSettings, AutomationState } from '../types/index';
 import type { CharacterEntry } from './characters';
+import type { RenderRecord } from './scenes';
 
 const DEFAULT_SETTINGS: AppSettings = {
   autoDownload: true,
@@ -43,9 +44,31 @@ export class StorageService {
     await this.saveQueue(updater(current));
   }
 
+  // Renders made this session, kept so a later prompt can reuse the image of a
+  // place that was already generated. Session-only, like the queue.
+  async getRenders(): Promise<RenderRecord[]> {
+    try {
+      const result = await chrome.storage.session.get(['renders']);
+      return result.renders || [];
+    } catch (error) {
+      console.error('Error getting renders:', error);
+      return [];
+    }
+  }
+
+  async addRender(record: RenderRecord): Promise<void> {
+    try {
+      const current = await this.getRenders();
+      const others = current.filter((r) => r.number !== record.number);
+      await chrome.storage.session.set({ renders: [...others, record] });
+    } catch (error) {
+      console.error('Error saving render:', error);
+    }
+  }
+
   async clearQueue(): Promise<void> {
     try {
-      await chrome.storage.session.remove('queue');
+      await chrome.storage.session.remove(['queue', 'renders']);
     } catch (error) {
       console.error('Error clearing queue:', error);
     }

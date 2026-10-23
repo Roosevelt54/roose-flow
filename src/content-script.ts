@@ -261,6 +261,30 @@ function readFlowMessages(): string {
 // it to need a round of adjustment once real console output comes back —
 // the same way the prompt input and Generate button did earlier.
 
+function wordsContain(haystack: string, needle: string): boolean {
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`).test(haystack);
+}
+
+/** A caption that is not the name but holds it as whole words, or the other way round. */
+function looseCaptionMatch(caption: string, target: string): boolean {
+  if (caption.length < 3 || caption.length > 60 || caption === target) return false;
+  return wordsContain(caption, target) || wordsContain(target, caption);
+}
+
+/** Which picture a tile shows, so two names that lead to one tile are noticed. */
+function tileIdentity(tile: HTMLElement): string {
+  const img = tile.querySelector('img');
+  const src = img ? img.currentSrc || img.src : '';
+  return src ? mediaKey(src) : (tile.textContent || '').trim().toLowerCase();
+}
+
+/** Tiles already attached to the prompt being built, so one is never attached twice. */
+const attachedTiles = new Set<string>();
+
+/** Why the last attach did not happen, so a missing tile is not searched for again and again. */
+let lastAttachFailure: 'no-tile' | 'menu' | null = null;
+
 /**
  * Find a gallery tile whose visible caption matches a character name exactly.
  * Walks up from the caption text looking for the nearest ancestor that also
@@ -272,6 +296,7 @@ function findGalleryTile(name: string): HTMLElement | null {
   if (!target) return null;
 
   const captions: HTMLElement[] = [];
+  const loose: HTMLElement[] = [];
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
   let node = walker.nextNode() as HTMLElement | null;
 
@@ -282,13 +307,23 @@ function findGalleryTile(name: string): HTMLElement | null {
       .join('')
       .trim();
 
-    if (ownText.toLowerCase() === target) captions.push(node);
+    const lowered = ownText.toLowerCase();
+    if (lowered === target) captions.push(node);
+    else if (looseCaptionMatch(lowered, target)) loose.push(node);
     node = walker.nextNode() as HTMLElement | null;
   }
 
   console.log(`[Roose Flow] "${name}": found ${captions.length} caption match(es)`);
 
-  for (const caption of captions) {
+  // With no exact caption, accept a near one (a tile captioned "BAEK SEO-HWAN"
+  // for the name "SEO-HWAN") but only when it is clearly one tile.
+  const usingLoose = captions.length === 0 && loose.length > 0;
+  if (usingLoose) {
+    console.log(`[Roose Flow] "${name}": no exact caption, ${loose.length} near match(es)`);
+  }
+  const found: HTMLElement[] = [];
+
+  for (const caption of usingLoose ? loose : captions) {
     let ancestor: HTMLElement | null = caption;
     for (let depth = 0; depth < 6 && ancestor; depth++) {
       if (ancestor.querySelector('img')) {
@@ -303,10 +338,20 @@ function findGalleryTile(name: string): HTMLElement | null {
             'at depth',
             depth
           );
-          return ancestor;
+          if (!usingLoose) return ancestor;
+          found.push(ancestor);
+          break;
         }
       }
       ancestor = ancestor.parentElement;
+    }
+  }
+
+  if (usingLoose) {
+    const distinct = new Set(found.map(tileIdentity));
+    if (distinct.size === 1) return found[0];
+    if (distinct.size > 1) {
+      console.log(`[Roose Flow] "${name}": near matches point at ${distinct.size} different tiles, not guessing`);
     }
   }
 
@@ -407,6 +452,70 @@ async function clickMenuItem(text: string, timeout = 2000): Promise<boolean> {
   return false;
 }
 
+/** Reference chips attached beside the prompt box: "Ingredient" buttons, never the (+) add button. */
+function visibleReferenceChips(): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>('button[aria-label]')).filter((b) => {
+    const label = (b.getAttribute('aria-label') || '').trim();
+    if (!/^ingredient(\s|$)/i.test(label) || /\badd\b/i.test(label)) return false;
+    const r = b.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  });
+}
+
+/** What the chips look like right now, so a change shows even if their number does not. */
+function chipSignature(): string {
+  return visibleReferenceChips()
+    .map((chip) => chip.innerHTML)
+    .join('|');
+}
+
+/**
+ * Attach a reference, retrying only when the click itself did not happen.
+ *
+ * "Add to prompt" is only retried when the tile or the menu item could not be
+ * found. Whether a chip then appeared is logged but is not a verdict: an
+ * earlier version treated "the chip count did not go up" as a failure, and
+ * reported characters as missing when they had in fact been attached (Flow
+ * can cap or restyle the chips it shows), while the retries risked adding the
+ * same reference twice.
+ */
+async function attachVerified(label: string, attach: () => Promise<boolean>): Promise<boolean> {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const beforeCount = visibleReferenceChips().length;
+    const beforeLook = chipSignature();
+    lastAttachFailure = null;
+    if (await attach()) {
+      const deadline = Date.now() + 2500;
+      let changed = false;
+      while (Date.now() < deadline) {
+        if (visibleReferenceChips().length > beforeCount || chipSignature() !== beforeLook) {
+          changed = true;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      console.log(
+        `[Roose Flow] "${label}" attached` +
+          (changed ? ` (chips ${beforeCount} → ${visibleReferenceChips().length})` : ' (no chip change seen, trusting the click)')
+      );
+      // Let the prompt bar finish rebuilding before the next reference.
+      await new Promise((r) => setTimeout(r, 800));
+      return true;
+    }
+    console.log(`[Roose Flow] "${label}" could not be clicked (attempt ${attempt}/3)`);
+    // A tile that is not in Flow will not appear on a second look; only a menu
+    // that did not respond is worth another try.
+    if (lastAttachFailure === 'no-tile') return false;
+    // Close a menu that may still be open and reset the gallery's search.
+    (document.activeElement || document.body).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+    );
+    await clearGallerySearch();
+    await new Promise((r) => setTimeout(r, 800));
+  }
+  return false;
+}
+
 /**
  * Best-effort removal of a reference chip left over from a previous prompt.
  *
@@ -426,13 +535,7 @@ async function clearAttachedReferences(_promptEl: HTMLElement): Promise<void> {
   // merely contained the word also caught the "Add ingredients to the prompt
   // box" (+) button, which is what got clicked every time - opening its menu
   // - while no chip was ever touched. Never match that one.
-  const visibleChips = () =>
-    Array.from(document.querySelectorAll<HTMLElement>('button[aria-label]')).filter((b) => {
-      const label = (b.getAttribute('aria-label') || '').trim();
-      if (!/^ingredient(\s|$)/i.test(label) || /\badd\b/i.test(label)) return false;
-      const r = b.getBoundingClientRect();
-      return r.width > 0 && r.height > 0;
-    });
+  const visibleChips = visibleReferenceChips;
 
   const before = visibleChips().length;
   let stuck = 0;
@@ -528,7 +631,10 @@ async function ensureCharactersSectionOpen(): Promise<void> {
  * range. This is a last resort, tried only once the plain search has
  * already failed with the section open.
  */
-async function scrollToFindTile(name: string): Promise<HTMLElement | null> {
+async function scrollToFindTile(
+  name: string,
+  find: (name: string) => HTMLElement | null = findGalleryTile
+): Promise<HTMLElement | null> {
   const scrollables = Array.from(
     document.querySelectorAll<HTMLElement>('div, section, ul, ol, main, aside')
   ).filter((el) => {
@@ -546,7 +652,7 @@ async function scrollToFindTile(name: string): Promise<HTMLElement | null> {
     await new Promise((r) => setTimeout(r, 200));
 
     for (let step = 0; step < 15; step++) {
-      const tile = findGalleryTile(name);
+      const tile = find(name);
       if (tile) {
         console.log('[Roose Flow] found tile by scrolling, step', step);
         return tile;
@@ -631,10 +737,8 @@ let viewDisturbed = false;
  * render did not appear on screen at all, and any large image that was still
  * showing (the character's own tile) could be taken for the result.
  */
-async function restoreGalleryView(): Promise<void> {
-  if (!viewDisturbed) return;
-  viewDisturbed = false;
-
+/** Empties Flow's gallery search box, which otherwise keeps filtering to the last name typed. */
+async function clearGallerySearch(): Promise<void> {
   const search = findVisibleSearchInput();
   if (search && search.value) {
     search.focus();
@@ -643,6 +747,13 @@ async function restoreGalleryView(): Promise<void> {
     console.log('[Roose Flow] cleared the gallery search box');
     await new Promise((r) => setTimeout(r, 300));
   }
+}
+
+async function restoreGalleryView(): Promise<void> {
+  if (!viewDisturbed) return;
+  viewDisturbed = false;
+
+  await clearGallerySearch();
 
   // The sidebar is the narrow column at the left; the smallest element there
   // whose label mentions "images" is the nav entry itself.
@@ -694,6 +805,68 @@ async function attachCharacterReference(name: string): Promise<boolean> {
 
   if (!tile) {
     console.log('[Roose Flow] no gallery tile found named:', name);
+    lastAttachFailure = 'no-tile';
+    return false;
+  }
+
+  // Two entries can lead to one tile ("CHINAZA" and "CHINAZA NWOSU"). It goes
+  // on the prompt once; a second click would add a duplicate chip.
+  const identity = tileIdentity(tile);
+  if (attachedTiles.has(identity)) {
+    console.log('[Roose Flow] already attached the tile for', name, '- skipping');
+    lastAttachFailure = null;
+    return true;
+  }
+
+  tile.scrollIntoView({ block: 'center' });
+  await new Promise((r) => setTimeout(r, 150));
+
+  rightClick(tile);
+  const clicked = await clickMenuItem('Add to prompt');
+  await new Promise((r) => setTimeout(r, 300));
+
+  if (clicked) {
+    attachedTiles.add(identity);
+    lastAttachFailure = null;
+  } else {
+    lastAttachFailure = 'menu';
+    console.log('[Roose Flow] could not attach reference for:', name);
+  }
+  return clicked;
+}
+
+/**
+ * Find the tile of an image generated earlier in this run by the identity of
+ * its picture. Generated images have no caption to search for, but the same
+ * host and path is on screen every time they are shown, whatever size or
+ * signature Flow serves them at.
+ */
+function findImageTileByKey(key: string): HTMLElement | null {
+  for (const img of document.querySelectorAll<HTMLImageElement>('img')) {
+    const src = img.currentSrc || img.src;
+    if (!src || mediaKey(src) !== key) continue;
+    const rect = img.getBoundingClientRect();
+    // The little chip beside the prompt box shows an attached image too; a
+    // grid tile is far larger than that.
+    if (rect.width < 120 || rect.height < 120) continue;
+    return img;
+  }
+  return null;
+}
+
+/** Right-clicks an earlier render and chooses "Add to prompt", as for a character. */
+async function attachSceneReference(key: string): Promise<boolean> {
+  console.log('[Roose Flow] attaching earlier scene:', key.slice(-40));
+
+  let tile = findImageTileByKey(key);
+  if (!tile) {
+    console.log('[Roose Flow] scene image not on screen, scrolling to find it');
+    tile = await scrollToFindTile(key, findImageTileByKey);
+  }
+
+  if (!tile) {
+    console.log('[Roose Flow] could not find the earlier scene image, generating without it');
+    lastAttachFailure = 'no-tile';
     return false;
   }
 
@@ -704,7 +877,7 @@ async function attachCharacterReference(name: string): Promise<boolean> {
   const clicked = await clickMenuItem('Add to prompt');
   await new Promise((r) => setTimeout(r, 300));
 
-  if (!clicked) console.log('[Roose Flow] could not attach reference for:', name);
+  if (!clicked) console.log('[Roose Flow] could not attach the earlier scene');
   return clicked;
 }
 
@@ -919,17 +1092,27 @@ async function waitForOutcome(
 export async function generatePrompt(
   text: string,
   characterNames: string[] = [],
-  timeout: number = 180000
+  timeout: number = 180000,
+  sceneKeys: string[] = []
 ): Promise<{
   success: boolean;
   imageUrl?: string;
   dataUrl?: string;
   kind?: string;
+  mediaKey?: string;
+  warning?: string;
+  /** Characters named in the prompt that could not be attached. */
+  missingReferences?: string[];
   error?: string;
 }> {
   try {
 
     console.log('[Roose Flow] generating:', text.slice(0, 60));
+    // Characters and earlier scenes are both references that make Flow rebuild
+    // the prompt bar, so they share every wait and re-check below.
+    const hasRefs = characterNames.length > 0 || sceneKeys.length > 0;
+    let clickBlocked = false;
+    const missing: string[] = [];
 
     let input = findPromptInput();
     if (!input) {
@@ -939,6 +1122,7 @@ export async function generatePrompt(
     // Always clear first, even with nothing to attach: a chip left from the
     // previous prompt must not silently carry into one that names no character.
     await clearAttachedReferences(input.el);
+    attachedTiles.clear();
 
     // For character prompts the text goes in FIRST. Attaching a reference
     // makes Flow rebuild the whole prompt bar (the old box is detached on
@@ -947,18 +1131,31 @@ export async function generatePrompt(
     // send button was found, enabled and clicked, no message appeared and
     // nothing generated. Text entered before the rebuild is carried across
     // by Flow itself, as when a person types first and adds a reference after.
-    if (characterNames.length > 0) {
+    if (hasRefs) {
       const fresh = findPromptInput();
       if (fresh) input = fresh;
       await writePrompt(input, text);
     }
 
-    for (const name of characterNames) {
-      await attachCharacterReference(name);
+    // The place first: its image is in the ordinary Images view, so nothing has
+    // to be opened, and the character sections can then be opened after it.
+    for (const key of sceneKeys) {
+      await attachVerified('earlier scene', () => attachSceneReference(key));
     }
+    for (const name of characterNames) {
+      // The previous character's search text would hide this one's tile.
+      await clearGallerySearch();
+      if (!(await attachVerified(name, () => attachCharacterReference(name)))) {
+        missing.push(name);
+      }
+    }
+    console.log(
+      `[Roose Flow] characters attached: ${characterNames.length - missing.length} of ${characterNames.length}`,
+      missing.length ? `(missing: ${missing.join(', ')})` : ''
+    );
     await restoreGalleryView();
 
-    if (characterNames.length > 0) {
+    if (hasRefs) {
       // A person takes many seconds to type a prompt after picking a
       // character; this ran Enter about two seconds after "Add to prompt".
       // If the chip is still loading, Flow ignores the submit.
@@ -966,7 +1163,7 @@ export async function generatePrompt(
       await new Promise((r) => setTimeout(r, 2500));
     }
 
-    if (characterNames.length > 0) {
+    if (hasRefs) {
       // Attaching a reference can make Flow re-render the prompt bar with a
       // new DOM node, in which case the element found above is now detached
       // and writing into it would silently do nothing.
@@ -984,7 +1181,7 @@ export async function generatePrompt(
     // an empty box would fire off a blank generation, so bail out rather than
     // pressing Enter on nothing.
     const carried =
-      characterNames.length > 0 && readValue(input).trim().length >= text.trim().length * 0.5;
+      hasRefs && readValue(input).trim().length >= text.trim().length * 0.5;
     if (carried) {
       console.log('[Roose Flow] prompt text survived attaching the references');
     } else if (!(await writePrompt(input, text))) {
@@ -998,7 +1195,7 @@ export async function generatePrompt(
 
     // Menus, the search box and the gallery all took focus while the
     // character was being attached; give it back before submitting.
-    if (characterNames.length > 0) await new Promise((r) => setTimeout(r, 1000));
+    if (hasRefs) await new Promise((r) => setTimeout(r, 1000));
     input.el.focus();
 
     // Scripted Enter and scripted clicks are both ignored by Flow now, with or
@@ -1025,8 +1222,9 @@ export async function generatePrompt(
     }
 
     if (!submitted) {
+      clickBlocked = true;
       pressEnter(input.el);
-      if (send && characterNames.length > 0) {
+      if (send && hasRefs) {
         await new Promise((r) => setTimeout(r, 1500));
         clickLikeUser(send);
       }
@@ -1048,14 +1246,26 @@ export async function generatePrompt(
       } catch (error) {
         console.error('[Roose Flow] could not read the render yet, the worker will retry:', error);
       }
-      return { success: true, imageUrl: outcome.hit.url, kind: outcome.hit.kind, dataUrl };
+      return {
+        success: true,
+        imageUrl: outcome.hit.url,
+        kind: outcome.hit.kind,
+        dataUrl,
+        mediaKey: mediaKey(outcome.hit.url),
+        ...(clickBlocked ? { warning: 'click-blocked' } : {}),
+        ...(missing.length ? { missingReferences: missing } : {}),
+      };
     }
 
     if (outcome.kind === 'error') {
       return { success: false, error: `Flow error: ${outcome.message}` };
     }
 
-    return { success: false, error: 'Generation timed out' };
+    return {
+      success: false,
+      error: 'Generation timed out',
+      ...(clickBlocked ? { warning: 'click-blocked' } : {}),
+    };
   } catch (error) {
     console.error('[generatePrompt] Error:', error);
     return {
@@ -1094,12 +1304,12 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 
   if (request.action === 'generatePrompt') {
-    const { text, timeout, characterNames } = request.payload || {};
+    const { text, timeout, characterNames, sceneKeys } = request.payload || {};
     if (!text) {
       sendResponse({ success: false, error: 'Missing text in payload' });
       return false;
     }
-    generatePrompt(text, characterNames || [], timeout || 180000)
+    generatePrompt(text, characterNames || [], timeout || 180000, sceneKeys || [])
       .then(sendResponse)
       .catch((error) =>
         sendResponse({ success: false, error: `Handler error: ${String(error)}` })

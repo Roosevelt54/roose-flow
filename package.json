@@ -1,6 +1,6 @@
 {
   "name": "roose-flow",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Chrome extension that queues image prompts and generates them in batches, with a side panel UI",
   "type": "module",
   "private": true,

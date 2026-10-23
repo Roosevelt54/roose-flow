@@ -3,7 +3,7 @@ import { QueueItem } from '../../types';
 
 interface UseQueueReturn {
   queue: QueueItem[];
-  addPrompt: (text: string, number?: number) => Promise<QueueItem[]>;
+  addPrompt: (text: string, number?: number, scene?: string) => Promise<QueueItem[]>;
   removePrompt: (id: string) => Promise<QueueItem[]>;
   reorderQueue: (items: QueueItem[]) => Promise<QueueItem[]>;
   isLoading: boolean;
@@ -64,14 +64,14 @@ export function useQueue(): UseQueueReturn {
     };
   }, []);
 
-  const addPrompt = async (text: string, number?: number): Promise<QueueItem[]> => {
+  const addPrompt = async (text: string, number?: number, scene?: string): Promise<QueueItem[]> => {
     try {
       if (!chrome?.runtime) {
         throw new Error('chrome.runtime not available');
       }
       const response = await new Promise<{queue?: QueueItem[]}>((resolve, reject) => {
         chrome.runtime.sendMessage(
-          { action: 'addPrompt', payload: { text, number } },
+          { action: 'addPrompt', payload: { text, number, scene } },
           (response) => {
             if (chrome.runtime.lastError) {
               reject(new Error(chrome.runtime.lastError.message));

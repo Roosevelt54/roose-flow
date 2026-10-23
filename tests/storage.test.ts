@@ -107,10 +107,44 @@ describe('StorageService', () => {
   });
 
   describe('clearQueue', () => {
-    it('drops the queue from session storage', async () => {
+    it('drops the queue, and the renders made for it, from session storage', async () => {
       mockStorageSession.remove.mockResolvedValue(undefined);
       await storage.clearQueue();
-      expect(mockStorageSession.remove).toHaveBeenCalledWith('queue');
+      expect(mockStorageSession.remove).toHaveBeenCalledWith(['queue', 'renders']);
+    });
+  });
+
+  describe('renders', () => {
+    const render = (number: number, mediaKey = `https://cdn.example.com/${number}`) => ({
+      number,
+      text: `prompt ${number}`,
+      mediaKey,
+    });
+
+    it('returns an empty list when none are saved', async () => {
+      mockStorageSession.get.mockResolvedValue({});
+      expect(await storage.getRenders()).toEqual([]);
+    });
+
+    it('appends a new render to the saved ones', async () => {
+      mockStorageSession.get.mockResolvedValue({ renders: [render(1)] });
+      mockStorageSession.set.mockResolvedValue(undefined);
+      await storage.addRender(render(2));
+      expect(mockStorageSession.set).toHaveBeenCalledWith({ renders: [render(1), render(2)] });
+    });
+
+    it('replaces the render for a shot that is generated again', async () => {
+      mockStorageSession.get.mockResolvedValue({ renders: [render(1), render(2)] });
+      mockStorageSession.set.mockResolvedValue(undefined);
+      await storage.addRender(render(1, 'https://cdn.example.com/new'));
+      expect(mockStorageSession.set).toHaveBeenCalledWith({
+        renders: [render(2), render(1, 'https://cdn.example.com/new')],
+      });
+    });
+
+    it('returns an empty list when storage fails', async () => {
+      mockStorageSession.get.mockRejectedValue(new Error('Storage error'));
+      expect(await storage.getRenders()).toEqual([]);
     });
   });
 

@@ -2,6 +2,8 @@ export interface ParsedPrompt {
   /** The shot number from the file, e.g. 4 for "IMG-004". Absent in plain numbered files. */
   number?: number;
   text: string;
+  /** The "SCENE 3 — …" style header the prompt sits under, when the file has them. */
+  scene?: string;
 }
 
 export interface SkippedShot {
@@ -81,13 +83,58 @@ function extractPrompt(block: string[]): string {
   return parts.join(' ').trim();
 }
 
+// "12." alone on a line, or "12. text". A dot straight into more digits ("3.5mm")
+// is not a marker.
+const NUMBER_MARKER = /^\s*(\d{1,4})\.(?:\s+(.*))?$/;
+const SCENE_HEADER = /^\s*(?:SCENE|CHAPTER|ACT|SECTION|PART)\s+\d+\b.*$/i;
+const MIN_PROMPT_LENGTH = 10;
+
+/**
+ * Reads "1." / "2." numbered prompts. The number is kept, a scene header sets
+ * the scene for the prompts below it, and neither headers nor "=====" dividers
+ * leak into the end of the prompt before them. Anything ahead of the first
+ * number (character notes, instructions) is not a prompt and is dropped.
+ */
 function parseNumbered(text: string): ParsedPrompt[] {
-  return text
-    .split(/(?:^|\n)(?=\d+\.\s)/)
-    .map((p) => p.trim())
-    .filter((p) => /^\d+\.\s/.test(p))
-    .filter((p) => p.length > 10)
-    .map((p) => ({ text: p }));
+  const items: ParsedPrompt[] = [];
+  let scene: string | undefined;
+  let current: { number: number; lines: string[]; scene?: string } | null = null;
+
+  const flush = () => {
+    if (!current) return;
+    const body = current.lines.join('\n').trim();
+    if (body.length > MIN_PROMPT_LENGTH) {
+      items.push({
+        number: current.number,
+        text: body,
+        ...(current.scene ? { scene: current.scene } : {}),
+      });
+    }
+    current = null;
+  };
+
+  for (const line of text.split(/\r?\n/)) {
+    if (SCENE_HEADER.test(line)) {
+      flush();
+      scene = line.trim();
+      continue;
+    }
+    if (DIVIDER.test(line)) {
+      flush();
+      continue;
+    }
+    const marker = line.match(NUMBER_MARKER);
+    if (marker) {
+      flush();
+      current = { number: parseInt(marker[1], 10), lines: [], scene };
+      if (marker[2]) current.lines.push(marker[2]);
+      continue;
+    }
+    if (current) current.lines.push(line);
+  }
+  flush();
+
+  return items;
 }
 
 /**

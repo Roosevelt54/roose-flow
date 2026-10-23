@@ -105,10 +105,60 @@ describe('parsePromptFile', () => {
     const result = parsePromptFile(text);
     expect(result.format).toBe('numbered');
     expect(result.items.map((i) => i.text)).toEqual([
-      '1. first numbered prompt here',
-      '2. second numbered prompt here',
+      'first numbered prompt here',
+      'second numbered prompt here',
     ]);
-    expect(result.items[0].number).toBeUndefined();
+    expect(result.items.map((i) => i.number)).toEqual([1, 2]);
+  });
+
+  describe('a numbered file organised into scenes', () => {
+    const FILE = `MASTER DESCRIPTIONS
+CHARACTER: a long description that is not a prompt.
+
+================================================================
+SCENE 1 — AIRPORT TERMINAL / WORK
+================================================================
+
+1.
+Wide shot of the terminal at dawn.
+Her posture is upright, with a 3.5mm detail.
+negative: no text
+
+2.
+Medium shot at the check-in counter.
+
+================================================================
+SCENE 2 — THE ENTRANCE
+================================================================
+
+3.
+Close on the sliding door as he arrives.
+`;
+
+    it('keeps each prompt number and ignores the preamble', () => {
+      const { items } = parsePromptFile(FILE);
+      expect(items.map((i) => i.number)).toEqual([1, 2, 3]);
+    });
+
+    it('gives each prompt the scene it sits under', () => {
+      const { items } = parsePromptFile(FILE);
+      expect(items[0].scene).toBe('SCENE 1 — AIRPORT TERMINAL / WORK');
+      expect(items[1].scene).toBe(items[0].scene);
+      expect(items[2].scene).toBe('SCENE 2 — THE ENTRANCE');
+    });
+
+    it('keeps scene headers and dividers out of the prompt text', () => {
+      const { items } = parsePromptFile(FILE);
+      expect(items[1].text).toBe('Medium shot at the check-in counter.');
+      expect(items[1].text).not.toMatch(/SCENE|====/);
+    });
+
+    it('keeps a multi-line prompt together, including a decimal at a line start', () => {
+      const { items } = parsePromptFile(FILE);
+      expect(items[0].text).toBe(
+        'Wide shot of the terminal at dawn.\nHer posture is upright, with a 3.5mm detail.\nnegative: no text'
+      );
+    });
   });
 });
 

@@ -65,6 +65,26 @@ describe('matchCharacters', () => {
     expect(result).toEqual(expect.arrayContaining(['Sun Jing Woo', 'Woo (nickname)']));
   });
 
+  it('treats a shorter tile name that is part of a longer matched one as the same character', () => {
+    // Both entries name the same person; "CHINAZA" appearing again later in the
+    // prompt must not send the extension looking for a second tile.
+    const result = matchCharacters('CHINAZA NWOSU stands at the desk. Later CHINAZA looks up.', [
+      entry('CHINAZA NWOSU'),
+      entry('CHINAZA'),
+    ]);
+    expect(result).toEqual(['CHINAZA NWOSU']);
+  });
+
+  it('keeps the shorter entry when the longer one is not mentioned', () => {
+    const result = matchCharacters('CHINAZA looks up.', [entry('CHINAZA NWOSU'), entry('CHINAZA')]);
+    expect(result).toEqual(['CHINAZA']);
+  });
+
+  it('does not merge names that only share letters, not whole words', () => {
+    const result = matchCharacters('Ann and Joanna talk', [entry('Joanna'), entry('Ann')]);
+    expect(result).toEqual(expect.arrayContaining(['Joanna', 'Ann']));
+  });
+
   it('falls back to the tile name as the trigger when trigger is blank', () => {
     expect(
       matchCharacters('Tessa Monroe walks in', [{ name: 'Tessa Monroe', trigger: '' }])

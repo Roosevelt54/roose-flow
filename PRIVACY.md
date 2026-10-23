@@ -1,6 +1,6 @@
 # Privacy Policy — Roose Flow
 
-_Last updated: 5 September 2026_
+_Last updated: 23 October 2026_
 
 Roose Flow does not collect, transmit, or sell any personal data.
 
@@ -14,8 +14,16 @@ third-party SDKs.
 open. They are never written to disk and never leave your computer. They are
 discarded when you close the side panel, and again when you close Chrome.
 
+**Earlier images from the same run.** To reuse the look of a place that was
+already generated, the extension remembers, for the current run only, which
+prompt each image belongs to and the web address of that image on Flow. This
+is held in the same session storage, is never written to disk or sent
+anywhere, and is discarded together with your prompts. The extension does not
+copy or upload the images themselves; it only finds the image again on the
+Flow page and uses Flow's own "Add to prompt" option.
+
 **Your settings** — auto-download on/off, download folder, serial numbering,
-character consistency, and the delay range between generations — are saved in
+character consistency, the character names you save, and the delay range between generations — are saved in
 Chrome's local storage on your own machine so they persist between sessions.
 They are never transmitted anywhere.
 

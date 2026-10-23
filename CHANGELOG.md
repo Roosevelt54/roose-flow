@@ -1,4 +1,12 @@
-# ZAPI Flow — Changelog
+# Roose Flow — Changelog
+
+## v1.0.1 (2026-10-23)
+
+### Added
+- Reuse earlier scenes: when a prompt's Setting matches a place already generated in the run (or the prompt says "same location"), that earlier image is attached as a reference alongside any characters. Can be switched off in Settings.
+- Shot-list import: only `AI IMAGE` shots are queued, in order, and files are named by the shot number from the file.
+- Connection status in the panel header, and clear messages when a run cannot start or a prompt is skipped (no Flow tab, tab needs a reload, click blocked by Chrome).
+- Start and Continue now check for a ready Flow tab first instead of failing silently.
 
 ## v1.0.0 (2026-09-05)
 
