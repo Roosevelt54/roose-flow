@@ -14,41 +14,51 @@ export function FileImport({ onImport }: FileImportProps) {
     if (isProcessingRef.current) return
     isProcessingRef.current = true
     const file = e.target.files?.[0]
-    if (!file) return
+    if (!file) {
+      isProcessingRef.current = false
+      return
+    }
 
     try {
       const text = await file.text()
-
       const { items: prompts, skipped, format } = parsePromptFile(text)
 
       if (prompts.length === 0) {
-        setMessage('No valid prompts found in file')
+        setMessage('No prompts found in that file. Number them like "1. your prompt".')
         return
       }
 
       onImport(prompts)
       setMessage(
         format === 'shot-list'
-          ? `✓ Added ${prompts.length} AI image prompts, left out ${skipped.length} stock/B-roll/other shots`
-          : `✓ Added ${prompts.length} prompts`
+          ? `Added ${prompts.length} AI image prompts and left out ${skipped.length} stock, B-roll or other shots.`
+          : `Added ${prompts.length} prompts.`
       )
-      setTimeout(() => setMessage(''), 6000)
+      setTimeout(() => setMessage(''), 8000)
       e.target.value = ''
     } catch (err) {
       console.error('[FileImport] Error:', err)
-      setMessage('Error reading file')
+      setMessage('Could not read that file.')
     } finally {
       isProcessingRef.current = false
     }
   }
 
+  const failed = message.startsWith('No prompts') || message.startsWith('Could not')
+
   return (
-    <div style={{ padding: '12px', backgroundColor: '#1a1a1a', borderTop: '1px solid #2a2a2a' }}>
+    <div className="rf-card">
       <input ref={fileInputRef} type="file" accept=".txt" onChange={handleFileChange} style={{ display: 'none' }} />
-      <button onClick={() => fileInputRef.current?.click()} style={{ width: '100%', padding: '8px', backgroundColor: '#1e3a8a', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
-        UPLOAD .TXT FILE
+      <h3 className="rf-h">Your prompts</h3>
+      <p className="rf-sub">Upload a .txt file with your numbered prompts.</p>
+      <button className="rf-btn primary block" style={{ marginTop: 10 }} onClick={() => fileInputRef.current?.click()}>
+        Upload prompts file
       </button>
-      {message && <div style={{ marginTop: '8px', fontSize: '12px', color: message.includes('✓') ? '#10b981' : '#ef4444' }}>{message}</div>}
+      {message && (
+        <p className="rf-help" style={{ color: failed ? 'var(--bad)' : 'var(--good)', fontWeight: 600 }}>
+          {message}
+        </p>
+      )}
     </div>
   )
 }

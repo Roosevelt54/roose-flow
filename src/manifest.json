@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Roose Flow",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Queue image prompts from a text file, generate them in batches, and save the results automatically.",
   "minimum_chrome_version": "114",
   "permissions": ["storage", "downloads", "sidePanel", "debugger"],

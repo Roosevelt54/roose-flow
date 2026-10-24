@@ -1,5 +1,19 @@
 # Roose Flow — Changelog
 
+## v1.0.2 (2026-10-23)
+
+### Changed
+- A friendlier, easier-to-read panel: clearer tabs (Prompts, Characters, Settings, Help), plain-language labels, a progress bar, and light or dark colours to match the browser.
+- The Characters tab now explains itself: "Character name in Flow" and "Words in your prompts", with examples.
+
+### Added
+- A 4-step quick tour for first-time users, including a picture of how a character's name in Flow connects to the words in your prompts. It opens once after install and can be reopened from Help.
+- A Help tab with answers to the most common problems.
+
+### Fixed
+- A character named two ways (for example "CHINAZA" and "CHINAZA NWOSU") is attached once, not searched for twice.
+- A character is no longer reported as missing when it was attached.
+
 ## v1.0.1 (2026-10-23)
 
 ### Added

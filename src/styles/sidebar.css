@@ -1,8 +1,148 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f1220;
+  --card: #181c2e;
+  --text: #e8eaf2;
+  --muted: #9aa3b8;
+  --line: #2a3048;
+  --primary: #6366f1;
+  --primary-hover: #7578f5;
+  --primary-soft: #23274a;
+  --on-primary: #ffffff;
+  --good: #4ade80;
+  --good-soft: #14301f;
+  --warn: #fbbf24;
+  --warn-soft: #3a2d0c;
+  --bad: #f87171;
+  --bad-soft: #3b1618;
+  --neutral-soft: #232840;
+  --accent: #f59e0b;
+  --accent-hover: #fbbf24;
+  --on-accent: #1b1300;
+  --shadow: none;
+  --radius: 12px;
+}
+
 * { box-sizing: border-box; }
-body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: #1a1a1a; color: #ccc; }
-input[type="text"], input[type="range"], textarea { font-family: inherit; }
-button { font-family: inherit; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  background: var(--bg);
+  color: var(--text);
+}
+button, input, textarea { font-family: inherit; font-size: inherit; color: inherit; }
 ::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: #1a1a1a; }
-::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+
+/* Layout */
+.rf-app { display: flex; flex-direction: column; height: 100vh; position: relative; }
+.rf-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; background: var(--card); border-bottom: 1px solid var(--line); }
+.rf-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+.rf-logo { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; display: grid; place-items: center; font-size: 15px; font-weight: 800; }
+.rf-pill { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; white-space: nowrap; background: var(--neutral-soft); color: var(--muted); }
+.rf-pill.ok { background: var(--good-soft); color: var(--good); }
+.rf-pill.warn { background: var(--warn-soft); color: var(--warn); }
+
+.rf-banner { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; font-size: 13px; }
+.rf-banner.error { background: var(--bad-soft); color: var(--bad); }
+.rf-banner.warning { background: var(--warn-soft); color: var(--warn); }
+.rf-banner span { flex: 1; }
+
+.rf-tabs { display: flex; gap: 4px; padding: 8px 10px; background: var(--card); border-bottom: 1px solid var(--line); }
+.rf-tab { flex: 1; padding: 8px 4px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-weight: 600; cursor: pointer; font-size: 13px; }
+.rf-tab:hover { background: var(--neutral-soft); }
+.rf-tab.active { background: var(--primary-soft); color: var(--primary); }
+.rf-body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+
+/* Cards and text */
+.rf-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
+.rf-card.soft { background: var(--primary-soft); border-color: transparent; box-shadow: none; }
+.rf-h { margin: 0 0 4px; font-size: 15px; font-weight: 700; }
+.rf-sub { margin: 0; color: var(--muted); font-size: 13px; }
+.rf-help { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.rf-label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 13px; }
+.rf-section-title { margin: 6px 2px 0; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+
+/* Form controls */
+.rf-input { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); outline: none; }
+.rf-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.rf-row { display: flex; gap: 8px; align-items: center; }
+.rf-btn { padding: 9px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); font-weight: 600; cursor: pointer; white-space: nowrap; }
+.rf-btn:hover:not(:disabled) { background: var(--neutral-soft); }
+.rf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.rf-btn.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.rf-btn.primary:hover:not(:disabled) { background: var(--primary-hover); }
+.rf-btn.accent { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
+.rf-btn.accent:hover:not(:disabled) { background: var(--accent-hover); }
+.rf-btn.danger { background: var(--bad-soft); border-color: transparent; color: var(--bad); }
+.rf-btn.block { width: 100%; }
+.rf-btn.big { padding: 12px 16px; font-size: 15px; }
+.rf-btn.link { border: 0; background: none; color: var(--primary); padding: 4px 0; }
+.rf-icon-btn { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 6px; }
+.rf-icon-btn:hover { background: var(--neutral-soft); color: var(--bad); }
+
+.rf-toggle { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.rf-toggle:first-of-type { border-top: 0; padding-top: 0; }
+.rf-toggle input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--primary); }
+.rf-toggle strong { display: block; font-size: 14px; }
+.rf-toggle small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.rf-range { width: 100%; accent-color: var(--primary); }
+
+/* Lists */
+.rf-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rf-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; cursor: grab; }
+.rf-item.dragging { opacity: 0.5; }
+.rf-num { min-width: 32px; height: 28px; padding: 0 6px; border-radius: 8px; display: grid; place-items: center; background: var(--neutral-soft); color: var(--muted); font-weight: 700; font-size: 12px; }
+.rf-text { flex: 1; font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+.rf-chip { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--neutral-soft); color: var(--muted); white-space: nowrap; }
+.rf-chip.done { background: var(--good-soft); color: var(--good); }
+.rf-chip.running { background: var(--warn-soft); color: var(--warn); }
+.rf-chip.skipped { background: var(--bad-soft); color: var(--bad); }
+
+.rf-empty { text-align: center; padding: 22px 14px; }
+.rf-empty .big { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+
+/* Bottom control bar */
+.rf-footer { padding: 12px 14px; background: var(--card); border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.rf-progress { height: 8px; background: var(--neutral-soft); border-radius: 999px; overflow: hidden; }
+.rf-progress > div { height: 100%; background: linear-gradient(90deg, #6366f1, #a855f7); border-radius: 999px; transition: width 0.3s; }
+.rf-status { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.rf-start-from { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+.rf-start-from input { width: 70px; text-align: center; }
+
+/* Toast */
+.rf-toast { position: absolute; left: 14px; right: 14px; bottom: 150px; z-index: 20; padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); color: #fff; }
+.rf-toast.success { background: #15803d; }
+.rf-toast.error { background: #b91c1c; }
+
+/* Tutorial */
+.rf-backdrop { position: absolute; inset: 0; z-index: 50; background: rgba(15, 18, 32, 0.55); display: flex; align-items: center; justify-content: center; padding: 14px; }
+.rf-modal { width: 100%; max-height: 100%; overflow-y: auto; background: var(--card); border-radius: 16px; padding: 18px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35); display: flex; flex-direction: column; gap: 12px; }
+.rf-step-tag { font-size: 12px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em; }
+.rf-modal h2 { margin: 0; font-size: 19px; }
+.rf-modal p { margin: 0; color: var(--text); }
+.rf-steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; counter-reset: s; }
+.rf-steps li { counter-increment: s; display: flex; gap: 10px; align-items: flex-start; }
+.rf-steps li::before { content: counter(s); flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+.rf-tip { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.rf-note { background: var(--primary-soft); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.rf-dots { display: flex; gap: 6px; justify-content: center; }
+.rf-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.rf-dot.on { background: var(--primary); width: 20px; border-radius: 999px; }
+.rf-nav { display: flex; gap: 8px; justify-content: space-between; align-items: center; }
+
+/* Mini diagram for the character step */
+.rf-diagram { display: flex; flex-direction: column; gap: 6px; background: var(--neutral-soft); border-radius: 12px; padding: 12px; }
+.rf-pair { display: flex; align-items: center; gap: 8px; }
+.rf-box { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; min-width: 0; }
+.rf-box small { display: block; color: var(--muted); font-size: 11px; margin-bottom: 2px; }
+.rf-box b { word-break: break-word; }
+.rf-arrow { color: var(--primary); font-weight: 800; flex: none; }
+
+details.rf-faq { border-top: 1px solid var(--line); padding: 10px 0; }
+details.rf-faq:first-of-type { border-top: 0; }
+details.rf-faq summary { cursor: pointer; font-weight: 600; }
+details.rf-faq p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }

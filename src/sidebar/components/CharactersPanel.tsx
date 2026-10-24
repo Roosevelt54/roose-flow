@@ -5,19 +5,10 @@ interface CharactersPanelProps {
   characters: CharacterEntry[]
   onAdd: (name: string, trigger: string) => void
   onRemove: (name: string) => void
+  onShowGuide?: () => void
 }
 
-const inputStyle: React.CSSProperties = {
-  padding: '6px 8px',
-  backgroundColor: '#2a2a2a',
-  color: '#ccc',
-  border: '1px solid #444',
-  borderRadius: '4px',
-  fontSize: '12px',
-  boxSizing: 'border-box'
-}
-
-export function CharactersPanel({ characters, onAdd, onRemove }: CharactersPanelProps) {
+export function CharactersPanel({ characters, onAdd, onRemove, onShowGuide }: CharactersPanelProps) {
   const [name, setName] = useState<string>('')
   const [trigger, setTrigger] = useState<string>('')
 
@@ -34,98 +25,83 @@ export function CharactersPanel({ characters, onAdd, onRemove }: CharactersPanel
   }
 
   return (
-    <div style={{
-      padding: '12px',
-      backgroundColor: '#1a1a1a',
-      color: '#ccc',
-      borderRadius: '6px',
-      maxHeight: '400px',
-      overflowY: 'auto'
-    }}>
-      <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '10px', lineHeight: 1.5 }}>
-        <strong>Tile name</strong> must match the renamed tile's caption on Flow
-        exactly — that's what gets right-clicked. <strong>Trigger text</strong> is
-        what to look for in a prompt; leave it blank to reuse the tile name. Set
-        it separately when a prompt spells a name differently from how the tile
-        was renamed (tile "Sun Jing Woo", prompts say "SUNG JIN WOO").
+    <>
+      <div className="rf-card soft">
+        <h3 className="rf-h">Keep the same face in every image</h3>
+        <p className="rf-sub">
+          Add each character once. When a prompt mentions them, Roose Flow attaches that
+          character in Flow for you.
+        </p>
+        {onShowGuide && (
+          <button className="rf-btn link" onClick={onShowGuide}>
+            How does this work?
+          </button>
+        )}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
+      <div className="rf-card">
+        <h3 className="rf-h">Add a character</h3>
+
+        <label className="rf-label" htmlFor="rf-char-name">
+          Character name in Flow
+        </label>
         <input
+          id="rf-char-name"
+          className="rf-input"
           type="text"
-          placeholder="Tile name on Flow, e.g. Sun Jing Woo"
+          placeholder="e.g. CHINAZA NWOSU"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onKeyPress={onEnter}
-          style={inputStyle}
+          onKeyDown={onEnter}
         />
-        <div style={{ display: 'flex', gap: '4px' }}>
-          <input
-            type="text"
-            placeholder="Trigger text in prompts (optional)"
-            value={trigger}
-            onChange={(e) => setTrigger(e.target.value)}
-            onKeyPress={onEnter}
-            style={{ ...inputStyle, flex: 1 }}
-          />
-          <button
-            onClick={handleAdd}
-            style={{
-              padding: '6px 12px',
-              backgroundColor: '#1e3a8a',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              fontWeight: 'bold'
-            }}
-          >
-            +
-          </button>
-        </div>
+        <p className="rf-help">Exactly as written under the character's tile in Flow.</p>
+
+        <label className="rf-label" htmlFor="rf-char-words">
+          Words in your prompts <span style={{ fontWeight: 400, color: 'var(--muted)' }}>(optional)</span>
+        </label>
+        <input
+          id="rf-char-words"
+          className="rf-input"
+          type="text"
+          placeholder="e.g. CHINAZA"
+          value={trigger}
+          onChange={(e) => setTrigger(e.target.value)}
+          onKeyDown={onEnter}
+        />
+        <p className="rf-help">
+          What your prompts call this person. Leave empty to use the name above.
+        </p>
+
+        <button className="rf-btn primary block" style={{ marginTop: 12 }} onClick={handleAdd} disabled={!name.trim()}>
+          Add character
+        </button>
       </div>
 
+      <div className="rf-section-title">Your characters</div>
       {characters.length === 0 ? (
-        <div style={{ textAlign: 'center', color: '#666', padding: '20px' }}>
-          No characters saved
+        <div className="rf-card rf-empty">
+          <div className="big">No characters yet</div>
+          <p className="rf-sub">
+            Example: name <b>CHINAZA NWOSU</b>, words in your prompts <b>CHINAZA</b>.
+          </p>
         </div>
       ) : (
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        <ul className="rf-list">
           {characters.map((c) => (
-            <li
-              key={c.name}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px',
-                borderBottom: '1px solid #2a2a2a'
-              }}
-            >
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '12px' }}>{c.name}</div>
-                {c.trigger.toLowerCase() !== c.name.toLowerCase() && (
-                  <div style={{ fontSize: '10px', color: '#9ca3af' }}>matches: "{c.trigger}"</div>
-                )}
+            <li key={c.name} className="rf-item" style={{ cursor: 'default' }}>
+              <div className="rf-text" style={{ display: 'block' }}>
+                <b>{c.name}</b>
+                <div className="rf-help" style={{ marginTop: 2 }}>
+                  Added when a prompt says "{c.trigger}"
+                </div>
               </div>
-              <button
-                onClick={() => onRemove(c.name)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#ef4444',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  padding: '0 4px'
-                }}
-              >
+              <button className="rf-icon-btn" onClick={() => onRemove(c.name)} aria-label={`Remove ${c.name}`} title="Remove">
                 ✕
               </button>
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </>
   )
 }
